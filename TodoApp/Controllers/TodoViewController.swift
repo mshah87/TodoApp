@@ -10,15 +10,27 @@ import UIKit
 
 class TodoViewController: UITableViewController {
     
-    var itemarr = ["buy shoes", "get books", "hockey stick"]
+    //turn itemarr into an array of Item objects
+    var itemarr = [Item]()
     
     let defaults = UserDefaults.standard
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+
+        let newitem = Item()
+        newitem.title = "get shoes"
+        itemarr.append(newitem)
         
-        if let items = defaults.array(forKey: "todoarr") as? [String] {
+        let newitem2 = Item()
+        newitem2.title = "buy food"
+        itemarr.append(newitem2)
+        
+        let newitem3 = Item()
+        newitem3.title = "get shirt"
+        itemarr.append(newitem3)
+        
+        if let items = defaults.array(forKey: "todoarr") as? [Item] {
             itemarr = items
         }
     }
@@ -27,7 +39,12 @@ class TodoViewController: UITableViewController {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: "TodoItemCell", for: indexPath)
         
-        cell.textLabel?.text = itemarr[indexPath.row]
+        let item = itemarr[indexPath.row]
+        
+        cell.textLabel?.text = item.title
+        
+        //if cell accessorytype is true, set to checkmark, otherwise none
+        cell.accessoryType = item.done == true ? .checkmark : .none
         
         return cell
     }
@@ -42,13 +59,10 @@ class TodoViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 //        print(itemarr[indexPath.row])
         
+        //sets done property to its opposite, shorter way than if else statements
+        itemarr[indexPath.row].done = !itemarr[indexPath.row].done
         
-        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
-            
-            tableView.cellForRow(at: indexPath)?.accessoryType = .none
-        } else {
-            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
-        }
+        tableView.reloadData()
         
         tableView.deselectRow(at: indexPath, animated: true)
         
@@ -72,11 +86,14 @@ class TodoViewController: UITableViewController {
         let action = UIAlertAction(title: "Add", style: .default) { (action) in
             //what will happen when user presses add button on the alert
             
+            let anitem = Item()
+            
             //force unwrap text because text property will never equal nil
-            self.itemarr.append(textfield.text!)
+            anitem.title = textfield.text!
+        
+            self.itemarr.append(anitem)
             
             //save updated itemarr to defaults
-            
             self.defaults.set(self.itemarr, forKey: "todoarr")
             
             self.tableView.reloadData()
