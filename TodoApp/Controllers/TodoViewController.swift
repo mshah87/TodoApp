@@ -13,26 +13,16 @@ class TodoViewController: UITableViewController {
     //turn itemarr into an array of Item objects
     var itemarr = [Item]()
     
-    let defaults = UserDefaults.standard
-
+    let datafilepath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        let newitem = Item()
-        newitem.title = "get shoes"
-        itemarr.append(newitem)
         
-        let newitem2 = Item()
-        newitem2.title = "buy food"
-        itemarr.append(newitem2)
+        print(datafilepath)
         
-        let newitem3 = Item()
-        newitem3.title = "get shirt"
-        itemarr.append(newitem3)
+        //load items from item.plist instead of defaults
+        loaditems()
         
-        if let items = defaults.array(forKey: "todoarr") as? [Item] {
-            itemarr = items
-        }
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -62,7 +52,7 @@ class TodoViewController: UITableViewController {
         //sets done property to its opposite, shorter way than if else statements
         itemarr[indexPath.row].done = !itemarr[indexPath.row].done
         
-        tableView.reloadData()
+        saveitems()
         
         tableView.deselectRow(at: indexPath, animated: true)
         
@@ -93,10 +83,7 @@ class TodoViewController: UITableViewController {
         
             self.itemarr.append(anitem)
             
-            //save updated itemarr to defaults
-            self.defaults.set(self.itemarr, forKey: "todoarr")
-            
-            self.tableView.reloadData()
+            self.saveitems()
 
         }
         
@@ -105,6 +92,38 @@ class TodoViewController: UITableViewController {
         alert.addAction(action)
         
         present(alert, animated: true, completion: nil)
+    }
+    
+    //MARK - data manipulation methods (encode and decode)
+    //we are encoding itemarr (an array of custom objects) into data that can be written in plist
+    //then when we need data back, we use plist decoder to take out data in form of array of items
+    
+    func saveitems(){
+        let encoder = PropertyListEncoder()
+        
+        do {
+            let data = try encoder.encode(itemarr)
+            try data.write(to: datafilepath!)
+            
+        } catch {
+            print("error in encoding item array. \(error)")
+        }
+        
+        self.tableView.reloadData()
+    }
+    
+    func loaditems(){
+        if let data = try? Data(contentsOf: datafilepath!){
+            let decoder = PropertyListDecoder()
+            
+            do {
+                //decode data from datafilepath
+                itemarr = try decoder.decode([Item].self, from: data)
+            } catch {
+                print("error decoding array, \(error)")
+            }
+         
+        }
     }
     
     
