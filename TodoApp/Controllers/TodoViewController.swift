@@ -7,21 +7,30 @@
 //
 
 import UIKit
+import CoreData
 
-class TodoViewController: UITableViewController {
+class TodoViewController: UITableViewController  {
     
     //turn itemarr into an array of Item objects
     var itemarr = [Item]()
     
-    let datafilepath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    //what should happen when variable gets set with new value
+    var selectedcategory : Category? {
+        didSet{
+            loaditems()
+
+        }
+    }
+    
+    //we're tapping into shared singleton object which corresponds to current app as an object
+    //context is pretty much a temporary area where u might create, read, update, or destroy data in databases
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        print(datafilepath)
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
-        //load items from item.plist instead of defaults
-        loaditems()
         
     }
     
@@ -49,6 +58,10 @@ class TodoViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 //        print(itemarr[indexPath.row])
         
+        //first remove nsmanagedobject from context
+//        context.delete(itemarr[indexPath.row])
+//        itemarr.remove(at: indexPath.row)
+//
         //sets done property to its opposite, shorter way than if else statements
         itemarr[indexPath.row].done = !itemarr[indexPath.row].done
         
@@ -76,10 +89,14 @@ class TodoViewController: UITableViewController {
         let action = UIAlertAction(title: "Add", style: .default) { (action) in
             //what will happen when user presses add button on the alert
             
-            let anitem = Item()
+            //Item is an object of type NSManagedObeject, which are rows inside table, and every row is an nsmanagedobject
+            let anitem = Item(context: self.context)
             
             //force unwrap text because text property will never equal nil
             anitem.title = textfield.text!
+            
+            anitem.done = false
+            anitem.parentCategory = self.selectedcategory
         
             self.itemarr.append(anitem)
             
@@ -87,61 +104,71 @@ class TodoViewController: UITableViewController {
 
         }
         
-      
-        
         alert.addAction(action)
         
         present(alert, animated: true, completion: nil)
     }
     
-    //MARK - data manipulation methods (encode and decode)
-    //we are encoding itemarr (an array of custom objects) into data that can be written in plist
-    //then when we need data back, we use plist decoder to take out data in form of array of items
-    
+    //MARK - data manipulation methods
+
     func saveitems(){
-        let encoder = PropertyListEncoder()
-        
         do {
-            let data = try encoder.encode(itemarr)
-            try data.write(to: datafilepath!)
+           try context.save()
             
         } catch {
-            print("error in encoding item array. \(error)")
+            print("error saving context, \(error)")
         }
         
         self.tableView.reloadData()
     }
     
-    func loaditems(){
-        if let data = try? Data(contentsOf: datafilepath!){
-            let decoder = PropertyListDecoder()
-            
-            do {
-                //decode data from datafilepath
-                itemarr = try decoder.decode([Item].self, from: data)
-            } catch {
-                print("error decoding array, \(error)")
-            }
-         
+    //has default parameter aswell that fetches all data
+    func loaditems(with request : NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil){
+        
+        let categorypredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedcategory!.name!)
+        
+        //make sure it is not nil
+        if let additionpredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categorypredicate, additionpredicate])
+        } else {
+            request.predicate = categorypredicate
         }
+
+        do {
+          itemarr = try context.fetch(request)
+        } catch {
+            print("error fetching data from context, \(error)")
+        }
+        
+        tableView.reloadData()
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-    
- 
-
 }
 
+//MARK: - search bar methods
+extension TodoViewController: UISearchBarDelegate{
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        
+        //fetch results in form of item
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+        
+        request.sortDescriptors = [sortDescriptor]
+        
+        loaditems(with: request, predicate: predicate)
+        
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loaditems()
+            
+            //run in foreground
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+        }
+    }
+}
