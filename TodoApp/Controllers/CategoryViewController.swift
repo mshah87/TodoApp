@@ -7,14 +7,15 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
     
-    var categories = [Category]()
+    let realm = try! Realm()
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-
+    //collection of results that are category objects
+    var categories : Results<Category>?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -28,14 +29,15 @@ class CategoryViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         
-        return categories.count
+        //if categories is not nil, return categories.count, if it is nil then return 1
+        return categories?.count ?? 1
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
         
-        cell.textLabel?.text = categories[indexPath.row].name
+        cell.textLabel?.text = categories?[indexPath.row].name ?? "no categories added yet"
         
         return cell
     }
@@ -53,7 +55,9 @@ class CategoryViewController: UITableViewController {
         let destinationVC = segue.destination as! TodoViewController
         
         if let indexpath = tableView.indexPathForSelectedRow {
-            destinationVC.selectedcategory = categories[indexpath.row]
+            
+            
+            destinationVC.selectedcategory = categories?[indexpath.row]
         }
     }
     
@@ -63,9 +67,11 @@ class CategoryViewController: UITableViewController {
     //MARK: - data manipulation methods
     //save data and load data (CRUD)
     
-    func saveCategories(){
+    func save(category: Category){
         do {
-            try context.save()
+            try realm.write {
+                realm.add(category)
+            }
             
         } catch {
             print("error saving context, \(error)")
@@ -75,13 +81,10 @@ class CategoryViewController: UITableViewController {
     }
     
     //has default parameter aswell that fetches all data
-    func loadcategories(with request : NSFetchRequest<Category> = Category.fetchRequest()){
+    func loadcategories(){
         
-        do {
-            categories = try context.fetch(request)
-        } catch {
-            print("error fetching data from context, \(error)")
-        }
+        //fetch all objects that belong to category datatype
+        categories = realm.objects(Category.self)
         
         tableView.reloadData()
     }
@@ -94,29 +97,27 @@ class CategoryViewController: UITableViewController {
         var textfield = UITextField()
         
         let alert = UIAlertController(title: "Add New Category", message: "", preferredStyle: .alert)
+    
+    let action = UIAlertAction(title: "Add", style: .default) { (action) in
+        
+            //category is an object of type NSManagedObeject, which are rows inside table, and every row is an nsmanagedobject
+            let Acategory  = Category()
+        
+            //force unwrap text because text property will never equal nil
+            Acategory.name = textfield.text!
+        
+            self.save(category: Acategory)
+    
+        }
+        
+        alert.addAction(action)
         
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "create new category"
             
             textfield = alertTextField
-
+            
         }
-    
-    let action = UIAlertAction(title: "Add", style: .default) { (action) in
-        
-            //category is an object of type NSManagedObeject, which are rows inside table, and every row is an nsmanagedobject
-            let Acategory  = Category(context: self.context)
-        
-            //force unwrap text because text property will never equal nil
-            Acategory.name = textfield.text!
-        
-            self.categories.append(Acategory)
-        
-            self.saveCategories()
-    
-        }
-        
-        alert.addAction(action)
         
         present(alert, animated: true, completion: nil)
 }
